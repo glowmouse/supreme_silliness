@@ -37,11 +37,6 @@ class edge_storage_t {
     return edge_id_t{candidate};
   }
 
-  constexpr edge_t& get_edge( edge_id_t index )
-  {
-    return edge_memory.at( index.value() );
-  }
-
   constexpr const edge_t& get_edge( edge_id_t index ) const
   {
     return edge_memory.at( index.value().value() );
@@ -138,7 +133,7 @@ class graph_raw {
       std::cout << node.get_id().value() << " -> ";
       for ( edge_id_t edge_idx = node.get_edge_begin(); edge_idx.has_value(); ) {
         const auto& edge = edges().get_edge( edge_idx );
-        std::cout << edge.dst_node.value() << " (" << edge_idx.value() << ") ";
+        std::cout << edge.dst_node.value() << " (" << edge_idx.value().value() << ") ";
         edge_idx = edge.next_edge;
       }
       std::cout << "\n";
@@ -236,7 +231,7 @@ constexpr int connected_subgraphs = count_connected( bidir_graph );
 static_assert( connected_subgraphs == 12 );
 
 int main( int argc, const char *argv[] ) {
-  //graph.print();
+  graph.print();
   std::cout << connected_subgraphs << "\n";
 }
 
