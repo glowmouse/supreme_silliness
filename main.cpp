@@ -47,40 +47,6 @@ class edge_storage_t {
   size_t next_available = 0;
 };
 
-template< typename storage_t, bool is_const >
-class edge_iterator_foundation_t {
-  public:
-
-  using value_type    = edge_t;
-  using pointer       = std::conditional< is_const, const value_type*, value_type* >;
-  using reference     = std::conditional< is_const, const value_type&, value_type& >;
-  using iterator_category = std::input_iterator_tag;
-
-  constexpr edge_iterator_foundation_t() {}
-  constexpr edge_iterator_foundation_t( int current_arg, storage_t& storage_arg ) : current{ current_arg }, storage{ storage_arg } {}
-
-  constexpr reference operator*() const { return storage->get_edge( current ); }
-  constexpr pointer operator->() const { return &(storage->get_edge( current )); }
-
-  constexpr edge_iterator_foundation_t& operator++() {
-    current = storage->get_edge( current ).next_edge();
-  }
-
-  friend constexpr bool operator==(const edge_iterator_foundation_t& lhs, const edge_iterator_foundation_t& rhs ) {
-    const bool current_matches = lhs.current == rhs.current;
-    const bool storage_matches = lhs.storage == rhs.storage;
-    return current_matches && (storage_matches || lhs.current == -1 );
-  } 
-  friend constexpr bool operator!=(const edge_iterator_foundation_t& lhs, const edge_iterator_foundation_t& rhs ) {
-    return !(lhs == rhs );
-  }
-
-  private:
-
-  int current = -1;
-  storage_t *storage = nullptr;
-};
-
 class node_t {
   public:
 
