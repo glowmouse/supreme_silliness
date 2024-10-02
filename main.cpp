@@ -19,7 +19,17 @@ class edge_t {
   public: 
 
   constexpr edge_t() {}
+  constexpr edge_t(node_id_t arg_dst_node, optional_edge_id_t arg_next_edge) : dst_node{arg_dst_node}, next_edge{arg_next_edge} {}
 
+  constexpr optional_edge_id_t get_next_edge() const {
+    return next_edge;
+  }
+
+  constexpr node_id_t get_dst_node() const {
+    return dst_node;
+  }
+
+  private:
   node_id_t dst_node;
   optional_edge_id_t next_edge;
 };
@@ -33,8 +43,7 @@ class edge_storage_t {
   constexpr edge_id_t alloc_edge( node_id_t node, optional_edge_id_t next ) {
     auto candidate = next_available;
     next_available += 1;
-    edge_memory.at( candidate ).dst_node = node;
-    edge_memory.at( candidate ).next_edge = next;
+    edge_memory.at( candidate ) = edge_t(node, next );
     return edge_id_t{candidate};
   }
 
@@ -114,11 +123,11 @@ class graph_raw {
   }
 
   constexpr optional_edge_id_t next_edge( edge_id_t edge_idx ) const {
-    return edges().get_edge( edge_idx ).next_edge;
+    return edges().get_edge( edge_idx ).get_next_edge();
   }
 
   constexpr node_id_t dst_node( edge_id_t edge_idx )  const {
-    return edges().get_edge( edge_idx ).dst_node;
+    return edges().get_edge( edge_idx ).get_dst_node();
   }
 
   constexpr size_t count_subgraphs() const {
@@ -134,8 +143,8 @@ class graph_raw {
       std::cout << node.get_id().value() << " -> ";
       for ( auto edge_idx = node.get_edge_begin(); edge_idx.has_value(); ) {
         const auto& edge = edges().get_edge( edge_idx.value() );
-        std::cout << edge.dst_node.value() << " (" << edge_idx.value().value() << ") ";
-        edge_idx = edge.next_edge;
+        std::cout << edge.get_dst_node().value() << " (" << edge_idx.value().value() << ") ";
+        edge_idx = edge.get_next_edge();
       }
       std::cout << "\n";
     }
