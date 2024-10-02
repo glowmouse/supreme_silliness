@@ -9,7 +9,7 @@ class numeric_id_t
 {
   public:
 
-  constexpr numeric_id_t( size_t arg_id ) noexcept : id{arg_id} {}
+  constexpr explicit numeric_id_t( size_t arg_id ) noexcept : id{arg_id} {}
   constexpr numeric_id_t() noexcept = default;
 
   constexpr bool has_value() const noexcept

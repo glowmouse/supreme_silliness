@@ -34,7 +34,7 @@ class edge_storage_t {
     next_available += 1;
     edge_memory.at( candidate ).dst_node = node;
     edge_memory.at( candidate ).next_edge = next;
-    return candidate;
+    return edge_id_t{candidate};
   }
 
   constexpr edge_t& get_edge( edge_id_t index )
@@ -105,7 +105,7 @@ class graph_raw {
   constexpr void add_edge( node_id_t src_node, node_id_t dst_node ) {
     node_t& node = nodes().at( src_node.value() );
     auto old_first_edge = node.get_edge_begin();
-    auto new_edge_idx = edges().alloc_edge( dst_node.value(), old_first_edge );
+    auto new_edge_idx = edges().alloc_edge( dst_node, old_first_edge );
     node.set_edge_begin( new_edge_idx );
   }
 
@@ -171,7 +171,7 @@ constexpr graph_t read_graph( std::string_view text )
   while( text.size() > 0 ) {
     auto src_node = read_int( text ); 
     auto dst_node = read_int( text ); 
-    graph.add_edge( src_node, dst_node );
+    graph.add_edge( node_id_t{src_node}, node_id_t{dst_node} );
   }
 
   return graph;
@@ -182,7 +182,8 @@ constexpr graph_t double_up_edges( const graph_t graph )
   const auto orig_nodes = graph.get_num_nodes();
   graph_t new_graph{ orig_nodes } ;
 
-  for( size_t node_idx = 0; node_idx < orig_nodes; ++node_idx ) {
+  for( size_t i= 0; i < orig_nodes; ++i ) {
+    const auto node_idx = node_id_t{ i };
     for( edge_id_t edge_idx = graph.first_edge(node_idx);
         edge_idx.has_value();
         edge_idx = graph.next_edge( edge_idx )) {
@@ -217,8 +218,9 @@ constexpr int count_connected( const graph_t& graph )
   }
 
   int color = 0;
-  for ( size_t node_idx = 0; node_idx < graph.get_num_nodes(); ++node_idx ) {
-    if ( visited.at( node_idx ) == -1 ) {
+  for ( size_t i = 0; i < graph.get_num_nodes(); ++i ) {
+    const auto node_idx = node_id_t{i};
+    if ( visited.at( node_idx.value() ) == -1 ) {
       mark_connected( graph, node_idx, visited, color );
       ++color;
     }
