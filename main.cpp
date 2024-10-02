@@ -130,14 +130,6 @@ class graph_raw {
     return edges().get_edge( edge_idx ).get_dst_node();
   }
 
-  constexpr size_t count_subgraphs() const {
-    
-    for( size_t node_idx = 0; node_idx < used_nodes; ++node_idx ) {
-    
-    }
-    return 0;
-  }
-
   void print() const {
     for( const auto& node : *this ) {
       std::cout << node.get_id().value() << " -> ";
@@ -241,7 +233,7 @@ constexpr int connected_subgraphs = count_connected( bidir_graph );
 static_assert( connected_subgraphs == 12 );
 
 int main( int argc, const char *argv[] ) {
-  graph.print();
+//  graph.print();
   std::cout << connected_subgraphs << "\n";
 }
 
