@@ -6,15 +6,20 @@
 
 #include "graph.h"
 #include "text_parsing.h"
+#include "gid.h"
 
+struct node_id_tag_t {};
+struct edge_id_tag_t {};
 
+using node_id_t = numeric_id_t< node_id_tag_t >; 
+using edge_id_t = numeric_id_t< edge_id_tag_t >;
 
 class edge_t {
   public: 
 
   constexpr edge_t() {}
 
-  size_t dst_node = 0;
+  node_id_t dst_node;
   size_t next_edge = -1;
 };
 
@@ -97,26 +102,26 @@ class graph_raw {
     }
   }
 
-  constexpr void add_edge( size_t src_node, size_t dst_node ) {
-    node_t& node = nodes().at( src_node );
+  constexpr void add_edge( node_id_t src_node, node_id_t dst_node ) {
+    node_t& node = nodes().at( src_node.value() );
     auto old_first_edge = node.get_edge_begin();
-    auto new_edge_idx = edges().alloc_edge( dst_node, old_first_edge );
+    auto new_edge_idx = edges().alloc_edge( dst_node.value(), old_first_edge );
     node.set_edge_begin( new_edge_idx );
   }
 
-  constexpr size_t get_nodes() const {
+  constexpr size_t get_num_nodes() const {
     return used_nodes;
   }
 
-  constexpr size_t first_edge( size_t node_idx )  const {
-    return nodes().at( node_idx ).get_edge_begin();
+  constexpr size_t first_edge( node_id_t node_idx )  const {
+    return nodes().at( node_idx.value() ).get_edge_begin();
   }
 
   constexpr size_t next_edge( size_t edge_idx ) const {
     return edges().get_edge( edge_idx ).next_edge;
   }
 
-  constexpr size_t dst_node( size_t edge_idx )  const {
+  constexpr node_id_t dst_node( size_t edge_idx )  const {
     return edges().get_edge( edge_idx ).dst_node;
   }
 
@@ -174,7 +179,7 @@ constexpr graph_t read_graph( std::string_view text )
 
 constexpr graph_t double_up_edges( const graph_t graph )
 {
-  const auto orig_nodes = graph.get_nodes();
+  const auto orig_nodes = graph.get_num_nodes();
   graph_t new_graph{ orig_nodes } ;
 
   for( size_t node_idx = 0; node_idx < orig_nodes; ++node_idx ) {
@@ -189,16 +194,16 @@ constexpr graph_t double_up_edges( const graph_t graph )
   return new_graph;
 }
 
-constexpr void mark_connected( const graph_t& graph, size_t node_idx, std::array<int, max_graph_nodes> &visited, int color )
+constexpr void mark_connected( const graph_t& graph, node_id_t node_idx, std::array<int, max_graph_nodes> &visited, int color )
 {
-  visited.at( node_idx ) = color;
+  visited.at( node_idx.value() ) = color;
 
   for( size_t edge_idx = graph.first_edge(node_idx);
     edge_idx != -1; 
     edge_idx = graph.next_edge( edge_idx )) 
   {
     auto dst_node = graph.dst_node( edge_idx );
-    if ( visited.at( dst_node ) == -1 ) {
+    if ( visited.at( dst_node.value() ) == -1 ) {
       mark_connected( graph, dst_node, visited, color );
     }
   }
@@ -212,7 +217,7 @@ constexpr int count_connected( const graph_t& graph )
   }
 
   int color = 0;
-  for ( size_t node_idx = 0; node_idx < graph.get_nodes(); ++node_idx ) {
+  for ( size_t node_idx = 0; node_idx < graph.get_num_nodes(); ++node_idx ) {
     if ( visited.at( node_idx ) == -1 ) {
       mark_connected( graph, node_idx, visited, color );
       ++color;
@@ -224,12 +229,12 @@ constexpr int count_connected( const graph_t& graph )
 constexpr graph_t::storage_t storage;
 constexpr graph_t graph = read_graph( graph_text );
 constexpr graph_t bidir_graph = double_up_edges( graph );
-static_assert( bidir_graph.get_nodes() == 10000 );
+static_assert( bidir_graph.get_num_nodes() == 10000 );
 constexpr int connected_subgraphs = count_connected( bidir_graph );
 static_assert( connected_subgraphs == 12 );
 
 int main( int argc, const char *argv[] ) {
 //  graph.print();
-  std::cout << connected_subgraphs << "\n";
+//  std::cout << connected_subgraphs << "\n";
 }
 
