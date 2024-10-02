@@ -6,7 +6,7 @@
 
 #include "graph.h"
 #include "text_parsing.h"
-#include "gid.h"
+#include "numeric_id.h"
 
 struct node_id_tag_t {};
 struct edge_id_tag_t {};
