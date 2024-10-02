@@ -20,7 +20,7 @@ class edge_t {
   constexpr edge_t() {}
 
   node_id_t dst_node;
-  size_t next_edge = -1;
+  edge_id_t next_edge;
 };
 
 template< size_t max_edges >
@@ -29,7 +29,7 @@ class edge_storage_t {
 
   constexpr edge_storage_t() : edge_memory{} {}
 
-  constexpr size_t alloc_edge( size_t node, size_t next ) {
+  constexpr edge_id_t alloc_edge( node_id_t node, edge_id_t next ) {
     auto candidate = next_available;
     next_available += 1;
     edge_memory.at( candidate ).dst_node = node;
@@ -37,14 +37,14 @@ class edge_storage_t {
     return candidate;
   }
 
-  constexpr edge_t& get_edge( size_t index )
+  constexpr edge_t& get_edge( edge_id_t index )
   {
-    return edge_memory.at( index );
+    return edge_memory.at( index.value() );
   }
 
-  constexpr const edge_t& get_edge( size_t index ) const
+  constexpr const edge_t& get_edge( edge_id_t index ) const
   {
-    return edge_memory.at( index );
+    return edge_memory.at( index.value() );
   }
 
   private:
@@ -55,17 +55,17 @@ class edge_storage_t {
 class node_t {
   public:
 
-  constexpr node_t( int node_id_arg ) : node_id{ node_id_arg } {}
-  constexpr node_t() : node_id{ -1 } {}
+  constexpr node_t( size_t node_id_arg ) : node_id{ node_id_arg } {}
+  constexpr node_t() = default;
 
-  constexpr int get_id() const { return node_id; }
-  constexpr int get_edge_begin() const { return edge_begin_id; }
-  constexpr void set_edge_begin( int edge_begin_id_arg ) { edge_begin_id = edge_begin_id_arg; }
+  constexpr node_id_t get_id() const { return node_id; }
+  constexpr edge_id_t get_edge_begin() const { return edge_begin_id; }
+  constexpr void set_edge_begin( edge_id_t edge_begin_id_arg ) { edge_begin_id = edge_begin_id_arg; }
 
   private:
 
-  int node_id = -1;
-  int edge_begin_id = -1;
+  node_id_t node_id;
+  edge_id_t edge_begin_id;
 };
 
 template< size_t max_nodes, size_t max_edges >
@@ -113,15 +113,15 @@ class graph_raw {
     return used_nodes;
   }
 
-  constexpr size_t first_edge( node_id_t node_idx )  const {
+  constexpr edge_id_t first_edge( node_id_t node_idx )  const {
     return nodes().at( node_idx.value() ).get_edge_begin();
   }
 
-  constexpr size_t next_edge( size_t edge_idx ) const {
+  constexpr edge_id_t next_edge( edge_id_t edge_idx ) const {
     return edges().get_edge( edge_idx ).next_edge;
   }
 
-  constexpr node_id_t dst_node( size_t edge_idx )  const {
+  constexpr node_id_t dst_node( edge_id_t edge_idx )  const {
     return edges().get_edge( edge_idx ).dst_node;
   }
 
@@ -135,10 +135,10 @@ class graph_raw {
 
   void print() const {
     for( const auto& node : *this ) {
-      std::cout << node.get_id() << " -> ";
-      for ( size_t edge_idx = node.get_edge_begin(); edge_idx != -1; ) {
+      std::cout << node.get_id().value() << " -> ";
+      for ( edge_id_t edge_idx = node.get_edge_begin(); edge_idx.has_value(); ) {
         const auto& edge = edges().get_edge( edge_idx );
-        std::cout << edge.dst_node << " (" << edge_idx << ") ";
+        std::cout << edge.dst_node.value() << " (" << edge_idx.value() << ") ";
         edge_idx = edge.next_edge;
       }
       std::cout << "\n";
@@ -183,8 +183,8 @@ constexpr graph_t double_up_edges( const graph_t graph )
   graph_t new_graph{ orig_nodes } ;
 
   for( size_t node_idx = 0; node_idx < orig_nodes; ++node_idx ) {
-    for( size_t edge_idx = graph.first_edge(node_idx);
-        edge_idx != -1; 
+    for( edge_id_t edge_idx = graph.first_edge(node_idx);
+        edge_idx.has_value();
         edge_idx = graph.next_edge( edge_idx )) {
       auto dst_node = graph.dst_node( edge_idx );
       new_graph.add_edge( node_idx, dst_node );
@@ -198,8 +198,8 @@ constexpr void mark_connected( const graph_t& graph, node_id_t node_idx, std::ar
 {
   visited.at( node_idx.value() ) = color;
 
-  for( size_t edge_idx = graph.first_edge(node_idx);
-    edge_idx != -1; 
+  for( edge_id_t edge_idx = graph.first_edge(node_idx);
+    edge_idx.has_value(); 
     edge_idx = graph.next_edge( edge_idx )) 
   {
     auto dst_node = graph.dst_node( edge_idx );
@@ -234,7 +234,7 @@ constexpr int connected_subgraphs = count_connected( bidir_graph );
 static_assert( connected_subgraphs == 12 );
 
 int main( int argc, const char *argv[] ) {
-//  graph.print();
-//  std::cout << connected_subgraphs << "\n";
+  //graph.print();
+  std::cout << connected_subgraphs << "\n";
 }
 
