@@ -12,7 +12,8 @@ struct node_id_tag_t {};
 struct edge_id_tag_t {};
 
 using node_id_t = numeric_id_t< node_id_tag_t >; 
-using edge_id_t = std::optional<numeric_id_t< edge_id_tag_t >>;
+using edge_id_t = numeric_id_t< edge_id_tag_t >;
+using optional_edge_id_t = std::optional<numeric_id_t< edge_id_tag_t >>;
 
 class edge_t {
   public: 
@@ -20,7 +21,7 @@ class edge_t {
   constexpr edge_t() {}
 
   node_id_t dst_node;
-  edge_id_t next_edge;
+  optional_edge_id_t next_edge;
 };
 
 template< size_t max_edges >
@@ -29,7 +30,7 @@ class edge_storage_t {
 
   constexpr edge_storage_t() : edge_memory{} {}
 
-  constexpr edge_id_t alloc_edge( node_id_t node, edge_id_t next ) {
+  constexpr edge_id_t alloc_edge( node_id_t node, optional_edge_id_t next ) {
     auto candidate = next_available;
     next_available += 1;
     edge_memory.at( candidate ).dst_node = node;
@@ -39,7 +40,7 @@ class edge_storage_t {
 
   constexpr const edge_t& get_edge( edge_id_t index ) const
   {
-    return edge_memory.at( index.value().value() );
+    return edge_memory.at( index.value() );
   }
 
   private:
@@ -54,13 +55,13 @@ class node_t {
   constexpr node_t() = default;
 
   constexpr node_id_t get_id() const { return node_id; }
-  constexpr edge_id_t get_edge_begin() const { return edge_begin_id; }
-  constexpr void set_edge_begin( edge_id_t edge_begin_id_arg ) { edge_begin_id = edge_begin_id_arg; }
+  constexpr optional_edge_id_t get_edge_begin() const { return edge_begin_id; }
+  constexpr void set_edge_begin( optional_edge_id_t edge_begin_id_arg ) { edge_begin_id = edge_begin_id_arg; }
 
   private:
 
   node_id_t node_id;
-  edge_id_t edge_begin_id;
+  optional_edge_id_t edge_begin_id;
 };
 
 template< size_t max_nodes, size_t max_edges >
@@ -108,11 +109,11 @@ class graph_raw {
     return used_nodes;
   }
 
-  constexpr edge_id_t first_edge( node_id_t node_idx )  const {
+  constexpr optional_edge_id_t first_edge( node_id_t node_idx )  const {
     return nodes().at( node_idx.value() ).get_edge_begin();
   }
 
-  constexpr edge_id_t next_edge( edge_id_t edge_idx ) const {
+  constexpr optional_edge_id_t next_edge( edge_id_t edge_idx ) const {
     return edges().get_edge( edge_idx ).next_edge;
   }
 
@@ -131,8 +132,8 @@ class graph_raw {
   void print() const {
     for( const auto& node : *this ) {
       std::cout << node.get_id().value() << " -> ";
-      for ( edge_id_t edge_idx = node.get_edge_begin(); edge_idx.has_value(); ) {
-        const auto& edge = edges().get_edge( edge_idx );
+      for ( auto edge_idx = node.get_edge_begin(); edge_idx.has_value(); ) {
+        const auto& edge = edges().get_edge( edge_idx.value() );
         std::cout << edge.dst_node.value() << " (" << edge_idx.value().value() << ") ";
         edge_idx = edge.next_edge;
       }
@@ -179,10 +180,10 @@ constexpr graph_t double_up_edges( const graph_t graph )
 
   for( size_t i= 0; i < orig_nodes; ++i ) {
     const auto node_idx = node_id_t{ i };
-    for( edge_id_t edge_idx = graph.first_edge(node_idx);
+    for( auto edge_idx = graph.first_edge(node_idx);
         edge_idx.has_value();
-        edge_idx = graph.next_edge( edge_idx )) {
-      auto dst_node = graph.dst_node( edge_idx );
+        edge_idx = graph.next_edge( edge_idx.value() )) {
+      auto dst_node = graph.dst_node( edge_idx.value() );
       new_graph.add_edge( node_idx, dst_node );
       new_graph.add_edge( dst_node, node_idx );
     }
@@ -194,11 +195,11 @@ constexpr void mark_connected( const graph_t& graph, node_id_t node_idx, std::ar
 {
   visited.at( node_idx.value() ) = color;
 
-  for( edge_id_t edge_idx = graph.first_edge(node_idx);
+  for( auto edge_idx = graph.first_edge(node_idx);
     edge_idx.has_value(); 
-    edge_idx = graph.next_edge( edge_idx )) 
+    edge_idx = graph.next_edge( edge_idx.value() )) 
   {
-    auto dst_node = graph.dst_node( edge_idx );
+    auto dst_node = graph.dst_node( edge_idx.value() );
     if ( visited.at( dst_node.value() ) == -1 ) {
       mark_connected( graph, dst_node, visited, color );
     }
