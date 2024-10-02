@@ -12,7 +12,7 @@ struct node_id_tag_t {};
 struct edge_id_tag_t {};
 
 using node_id_t = numeric_id_t< node_id_tag_t >; 
-using edge_id_t = numeric_id_t< edge_id_tag_t >;
+using edge_id_t = std::optional<numeric_id_t< edge_id_tag_t >>;
 
 class edge_t {
   public: 
@@ -44,7 +44,7 @@ class edge_storage_t {
 
   constexpr const edge_t& get_edge( edge_id_t index ) const
   {
-    return edge_memory.at( index.value() );
+    return edge_memory.at( index.value().value() );
   }
 
   private:

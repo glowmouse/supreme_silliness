@@ -12,17 +12,13 @@ class numeric_id_t
   constexpr explicit numeric_id_t( size_t arg_id ) noexcept : id{arg_id} {}
   constexpr numeric_id_t() noexcept = default;
 
-  constexpr bool has_value() const noexcept
-  {
-    return id.has_value();
-  }
   constexpr size_t value() const
   {
-    return id.value();
+    return id;
   }
 
   private:
-  std::optional<size_t> id;
+  size_t id = 0;
 };
 
 #endif
