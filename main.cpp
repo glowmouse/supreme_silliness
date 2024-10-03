@@ -8,45 +8,100 @@
 #include "text_parsing.h"
 #include "numeric_id.h"
 
+// Dummy tags for the node_t and edge_t
 struct node_id_tag_t {};
 struct edge_id_tag_t {};
 
-using node_id_t = numeric_id_t< node_id_tag_t >; 
+/// @brief Numeric (size_t) id for a graph node.
+using node_id_t = numeric_id_t< node_id_tag_t >;
+
+/// @brief Numeric (size_t) id for a graph edge
 using edge_id_t = numeric_id_t< edge_id_tag_t >;
+
+/// @brief optional graph_id_d
+/// 
+/// The edge fanout for a graph node is represented by a linked list -
+/// optional_edge_id_t is how the next field in the linked list is stored.
+///
+/// If a method takes or returns edge_id_t, a legal edge is gauranteed.
+/// If a method takes optional_edge_id_t, the edge may not exist
+///  
 using optional_edge_id_t = std::optional<numeric_id_t< edge_id_tag_t >>;
 
+///
+/// @brief Graph edge class
+/// 
+/// The edge fanout of any graph node is represented as a linked list.
+/// The edge_t class are the nodes on that list.
+/// 
 class edge_t {
   public: 
 
-  constexpr edge_t() {}
-  constexpr edge_t(node_id_t arg_dst_node, optional_edge_id_t arg_next_edge) : dst_node{arg_dst_node}, next_edge{arg_next_edge} {}
+  ///
+  /// @brief Edge constructor 
+  ///
+  /// Creates a node in the edge fanout linked list.
+  /// 
+  /// arg_dst_node - The destination node of the edge.  The source node
+  ///   is the node that owns the start of the list.
+  /// arg_next_edge - The next edge in the edge fanout linked list.  If the
+  ///   optional has no value then we're at the end of the list.
+  /// 
+  constexpr edge_t(
+    node_id_t arg_dst_node, 
+    optional_edge_id_t arg_next_edge
+  ) : dst_node{arg_dst_node}, next_edge{arg_next_edge} {}
 
+  /// @brief Get the next edge in the edge fanout linked list
+  ///
   constexpr optional_edge_id_t get_next_edge() const {
     return next_edge;
   }
 
+  /// @brief Get the destination node for this edge.
+  /// 
   constexpr node_id_t get_dst_node() const {
     return dst_node;
   }
+
+  /// @brief default constructor for un-initialized edges
+  ///
+  /// Used to create the edge allocator class, edge_storage_t
+  ///
+  constexpr edge_t() = default;
 
   private:
   node_id_t dst_node;
   optional_edge_id_t next_edge;
 };
 
+/// @brief A pool of graph edges (edge_t class) that can be allocated from
+/// 
 template< size_t max_edges >
 class edge_storage_t {
   public:
 
-  constexpr edge_storage_t() : edge_memory{} {}
+  constexpr edge_storage_t() = default;
 
-  constexpr edge_id_t alloc_edge( node_id_t node, optional_edge_id_t next ) {
+  /// @brief Allocate and initialize an edge
+  ///
+  /// @param dst_node - The destination node ID the edge is connecting to
+  /// @param next_edge - The node edge in the source node's edge fanout linked list
+  ///
+  /// @return The newly allocated edge identifier, linked into the source node's fanout list
+  /// 
+  constexpr edge_id_t alloc_edge( 
+    node_id_t dst_node, 
+    optional_edge_id_t next_edge 
+  ) {
     auto candidate = next_available;
     next_available += 1;
-    edge_memory.at( candidate ) = edge_t(node, next );
+    edge_memory.at( candidate ) = edge_t(dst_node, next_edge );
     return edge_id_t{candidate};
   }
 
+  /// @brief Get a reference to the actual edge data given the edge's identifier
+  ///
   constexpr const edge_t& get_edge( edge_id_t index ) const
   {
     return edge_memory.at( index.value() );
@@ -57,15 +112,28 @@ class edge_storage_t {
   size_t next_available = 0;
 };
 
+
 class node_t {
   public:
 
+  /// @brief Node constructor
+  ///
+  /// @brief node_id_arg - The unque ID of the node
+  ///
   constexpr node_t( size_t node_id_arg ) : node_id{ node_id_arg } {}
-  constexpr node_t() = default;
 
+  /// @brief get the node ID
   constexpr node_id_t get_id() const { return node_id; }
+
+  /// @brief Gets the beginning of the edge fanout list
   constexpr optional_edge_id_t get_edge_begin() const { return edge_begin_id; }
   constexpr void set_edge_begin( optional_edge_id_t edge_begin_id_arg ) { edge_begin_id = edge_begin_id_arg; }
+
+  /// @brief default constructor for un-initialized nodes
+  ///
+  /// Used to create the edge allocator class, edge_storage_t
+  ///
+  constexpr node_t() = default;
 
   private:
 
