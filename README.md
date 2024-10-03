@@ -1,11 +1,14 @@
 # supreme_silliness
 Parse a text description of a graph and count connected subgraphs at compile time
+A challenge from https://ics.uci.edu/~wayne/research/students/
 
 ## Compiling
 
 > g++ -O -fconstexpr-depth=10000 -fconstexpr-loop-limit=10000000 -fconstexpr-ops-limit=1000000000 main.cpp
 
 gcc version 11.4.0 tested
+
+Compile time was 50s in my Raspberry Pi 5
 
 ## Manifest
 
@@ -37,9 +40,4 @@ main:
 ```
 
 TLDR, the assembly prints 12, which is the number of subgraphs
-
-## TODO
-
-Some documentation for main.cpp.
-
 

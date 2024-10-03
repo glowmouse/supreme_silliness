@@ -253,13 +253,22 @@ class graph_raw {
   storage_t storage;
 };
 
+// Wrap test graph description text in graph.h in a string view.
+//
 constexpr std::string_view graph_text{ input };
 
+//
+// Use the string view to compile time compute the number of nodes
+// and edges that will be in the final graph.  Create a graph type,
+// graph_t, with just enough storage for that graph.
+//
 constexpr size_t max_graph_nodes = read_int_v( graph_text );  
 constexpr size_t max_graph_edges = count_words( graph_text );
-
 using graph_t = graph_raw< max_graph_nodes, max_graph_edges >;
 
+///
+/// @brief Given a graph text description, populate a graph data structure
+///
 constexpr graph_t read_graph( std::string_view text ) 
 {
   auto num_nodes = read_int( text ); 
@@ -274,19 +283,31 @@ constexpr graph_t read_graph( std::string_view text )
   return graph;
 }
 
-constexpr graph_t double_up_edges( const graph_t graph )
+///
+/// @brief Given a uni-directional graph, construct a bi-directional graph
+///
+/// Used to count connected subgraphs
+///
+/// Creates a bi-directional graph from a uni-directional graph by adding extra
+/// edges.  i.e.,  if there's an edge from A -> B in the input graph, the output
+/// graph is guaranteed to have both A -> B and B -> A.
+///
+constexpr graph_t double_up_edges( const graph_t& graph )
 {
-  const auto orig_nodes = graph.get_num_nodes();
-  graph_t new_graph{ orig_nodes } ;
+  graph_t new_graph{ graph.get_num_nodes() } ;
 
-  for( size_t i= 0; i < orig_nodes; ++i ) {
-    const auto node_idx = node_id_t{ i };
-    auto edge_itr = graph.edge_head( node_idx );
+  // For each nodes..
+  for( const auto& node : graph ) {
+    const auto node_idx = node.get_id();
 
+    // For each edge in the node
+    auto edge_itr = node.get_edge_head();
     while( edge_itr.has_value() ) {
       const edge_t& edge = graph.get_edge( edge_itr.value() );
 
       auto dst_node = edge.get_dst_node();
+
+      // Double up the edge in the new graph
       new_graph.add_edge( node_idx, dst_node );
       new_graph.add_edge( dst_node, node_idx );
 
@@ -296,49 +317,75 @@ constexpr graph_t double_up_edges( const graph_t graph )
   return new_graph;
 }
 
-constexpr void mark_connected( const graph_t& graph, node_id_t node_idx, std::array<int, max_graph_nodes> &visited, int color )
+///
+/// @brief  Mark any nodes graph that are connected to node_idx
+/// 
+/// Used to count connected subgraphs
+///
+/// @param graph     - The graph we're connected the connected subgraphs of
+/// @param node_idx  - The current node we're marking connectivity on
+/// @param visited   - The list of nodes that have already been visited
+///
+/// The functions output is an updated visited array.  Function is recursive
+///
+constexpr void mark_connected( 
+  const graph_t& graph, 
+  node_id_t node_idx, 
+  std::array<bool, max_graph_nodes> &visited
+)
 {
-  visited.at( node_idx.value() ) = color;
+  visited.at( node_idx.value() ) = true;
 
   auto edge_itr = graph.edge_head( node_idx );
 
   while( edge_itr.has_value() ) {
     const edge_t& edge = graph.get_edge( edge_itr.value() );
     auto dst_node = edge.get_dst_node();
-    if ( visited.at( dst_node.value() ) == -1 ) {
-      mark_connected( graph, dst_node, visited, color );
+    if ( !visited.at( dst_node.value() ) ) {
+      mark_connected( graph, dst_node, visited);
     }
     edge_itr = edge.get_next_edge();
   }
 }
 
+///
+/// @brief Count connected subgraphs of a graph
+///
+/// 1.  Make sure that all edges have a corresponding reverse edge  
+/// 2.  Create an array of graph nodes we've visited
+/// 3.  Search all graph nodes, looking for ones that haven't been visited
+/// 4a. When an unvisited node is found, count it
+/// 4b. Then visit it and anything that connects to it 
+///
 constexpr int count_connected( const graph_t& graph )
 {
-  std::array< int, max_graph_nodes> visited = {};
-  for ( auto itr = visited.begin(); itr != visited.end(); ++itr ) {
-    *itr = -1;
-  }
+  /// 1. Make sure that all edges have a corresponding reverse edge  
+  graph_t bidir_graph = double_up_edges( graph );
 
-  int color = 0;
-  for ( size_t i = 0; i < graph.get_num_nodes(); ++i ) {
-    const auto node_idx = node_id_t{i};
-    if ( visited.at( node_idx.value() ) == -1 ) {
-      mark_connected( graph, node_idx, visited, color );
-      ++color;
+  /// 2. Create an array of graph nodes we've visited
+  std::array< bool, max_graph_nodes> visited = {};
+  for( auto& value : visited ) { value = false; }
+
+  /// 3. Search all graph nodes, looking for ones that haven't been visited
+  int subgraph_count = 0;
+  for ( const auto& node : bidir_graph ) {
+    if ( !visited.at( node.get_id().value() ) ) {
+      /// 4a. When an unvisited node is found, count it
+      ++subgraph_count;
+      /// 4b. Then visit it and anything that connects to it 
+      mark_connected( bidir_graph, node.get_id(), visited );
     }
   }
-  return color;
+  return subgraph_count;
 }
 
-constexpr graph_t::storage_t storage;
 constexpr graph_t graph = read_graph( graph_text );
-constexpr graph_t bidir_graph = double_up_edges( graph );
-static_assert( bidir_graph.get_num_nodes() == 10000 );
-constexpr int connected_subgraphs = count_connected( bidir_graph );
+constexpr int connected_subgraphs = count_connected( graph );
+// The static assert backs up the claim that the number of subgraphs is known
+// at compile time.
 static_assert( connected_subgraphs == 12 );
 
 int main( int argc, const char *argv[] ) {
-  graph.print();
   std::cout << connected_subgraphs << "\n";
 }
 
