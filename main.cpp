@@ -94,7 +94,7 @@ class edge_storage_t {
     node_id_t dst_node, 
     optional_edge_id_t next_edge 
   ) {
-    auto candidate = next_available;
+    const auto candidate = next_available;
     next_available += 1;
     edge_memory.at( candidate ) = edge_t(dst_node, next_edge );
     return edge_id_t{candidate};
@@ -140,7 +140,7 @@ class node_t {
   template< size_t storage_max_edges >
   constexpr void add_edge( node_id_t dst_node, edge_storage_t<storage_max_edges>& storage)
   {
-    edge_id_t new_head = storage.alloc_edge( dst_node, edge_head );
+    const edge_id_t new_head = storage.alloc_edge( dst_node, edge_head );
     edge_head = optional_edge_id_t{new_head};
   } 
 
@@ -304,8 +304,7 @@ constexpr graph_t double_up_edges( const graph_t& graph )
     auto edge_itr = node.get_edge_head();
     while( edge_itr.has_value() ) {
       const edge_t& edge = graph.get_edge( edge_itr.value() );
-
-      auto dst_node = edge.get_dst_node();
+      const auto dst_node = edge.get_dst_node();
 
       // Double up the edge in the new graph
       new_graph.add_edge( node_idx, dst_node );
@@ -340,7 +339,7 @@ constexpr void mark_connected(
 
   while( edge_itr.has_value() ) {
     const edge_t& edge = graph.get_edge( edge_itr.value() );
-    auto dst_node = edge.get_dst_node();
+    const auto dst_node = edge.get_dst_node();
     if ( !visited.at( dst_node.value() ) ) {
       mark_connected( graph, dst_node, visited);
     }
