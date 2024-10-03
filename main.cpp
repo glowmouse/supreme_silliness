@@ -88,7 +88,7 @@ class edge_storage_t {
   /// @param dst_node - The destination node ID the edge is connecting to
   /// @param next_edge - The node edge in the source node's edge fanout linked list
   ///
-  /// @return The newly allocated edge identifier, linked into the source node's fanout list
+  /// @return The newly allocated edge identifier
   /// 
   constexpr edge_id_t alloc_edge( 
     node_id_t dst_node, 
@@ -120,14 +120,29 @@ class node_t {
   ///
   /// @brief node_id_arg - The unque ID of the node
   ///
-  constexpr node_t( size_t node_id_arg ) : node_id{ node_id_arg } {}
+  constexpr node_t( node_id_t node_id_arg ) : node_id{ node_id_arg } {}
 
   /// @brief get the node ID
-  constexpr node_id_t get_id() const { return node_id; }
+  constexpr node_id_t get_id() const { 
+    return node_id; 
+  }
 
   /// @brief Gets the beginning of the edge fanout list
-  constexpr optional_edge_id_t get_edge_begin() const { return edge_begin_id; }
-  constexpr void set_edge_begin( optional_edge_id_t edge_begin_id_arg ) { edge_begin_id = edge_begin_id_arg; }
+  constexpr optional_edge_id_t get_edge_head() const { 
+    return edge_head; 
+  }
+
+  /// @brief Add a new edge to the node.
+  ///
+  /// dst_node  Destination node.  Creates a node_id -> dst_node edge
+  /// storage   Storage pool to get the new edge from
+  ///
+  template< size_t storage_max_edges >
+  constexpr void add_edge( node_id_t dst_node, edge_storage_t<storage_max_edges>& storage)
+  {
+    edge_id_t new_head = storage.alloc_edge( dst_node, edge_head );
+    edge_head = optional_edge_id_t{new_head};
+  } 
 
   /// @brief default constructor for un-initialized nodes
   ///
@@ -138,9 +153,13 @@ class node_t {
   private:
 
   node_id_t node_id;
-  optional_edge_id_t edge_begin_id;
+  optional_edge_id_t edge_head;
 };
 
+/// 
+/// @brief Graph with variable storage
+///
+///
 template< size_t max_nodes, size_t max_edges >
 class graph_raw {
   public:
@@ -167,41 +186,54 @@ class graph_raw {
 
   graph_raw() = delete;
 
+  /// Constructs a graph with "used_nodes_arg" nodes and no edges.
+  ///
+  /// @param used_nodes_arg - Number of nodes in the graph.
+  ///
   constexpr graph_raw( size_t used_nodes_arg ) : storage{}, used_nodes{ used_nodes_arg } {
-    int idx = 0;
+    // Initialized each used node with a unique id
+    size_t idx = 0;
     for( auto& node: *this ) {
-      node = node_t(idx);
+      node = node_t( node_id_t{idx} );
       ++idx;
     }
   }
 
+  /// @brief Add an edge to the graph
+  ///
+  /// src_node - edge source node
+  /// dst_node - edge destination node
+  ///
   constexpr void add_edge( node_id_t src_node, node_id_t dst_node ) {
     node_t& node = nodes().at( src_node.value() );
-    auto old_first_edge = node.get_edge_begin();
-    auto new_edge_idx = edges().alloc_edge( dst_node, old_first_edge );
-    node.set_edge_begin( new_edge_idx );
+    node.add_edge( dst_node, edges() );
   }
 
+  /// @brief Gets the number of nodes in the graph
   constexpr size_t get_num_nodes() const {
     return used_nodes;
   }
 
-  constexpr optional_edge_id_t first_edge( node_id_t node_idx )  const {
-    return nodes().at( node_idx.value() ).get_edge_begin();
+  /// @brief Gets the head of the edge linked list.
+  ///
+  /// Note - most of the time this is the only thing we want from a node.  We
+  ///    already have the node id
+  ///
+  constexpr optional_edge_id_t edge_head( node_id_t node_idx )  const {
+    return nodes().at( node_idx.value() ).get_edge_head();
   }
 
-  constexpr optional_edge_id_t next_edge( edge_id_t edge_idx ) const {
-    return edges().get_edge( edge_idx ).get_next_edge();
+  /// @brief Get an edge given an edge_id
+  constexpr const edge_t& get_edge( edge_id_t edge_idx ) const {
+    return edges().get_edge( edge_idx );
   }
 
-  constexpr node_id_t dst_node( edge_id_t edge_idx )  const {
-    return edges().get_edge( edge_idx ).get_dst_node();
-  }
-
+  /// @brief Print the graph by walking nodes and edges.
+  ///
   void print() const {
     for( const auto& node : *this ) {
       std::cout << node.get_id().value() << " -> ";
-      for ( auto edge_idx = node.get_edge_begin(); edge_idx.has_value(); ) {
+      for ( auto edge_idx = node.get_edge_head(); edge_idx.has_value(); ) {
         const auto& edge = edges().get_edge( edge_idx.value() );
         std::cout << edge.get_dst_node().value() << " (" << edge_idx.value().value() << ") ";
         edge_idx = edge.get_next_edge();
@@ -249,12 +281,16 @@ constexpr graph_t double_up_edges( const graph_t graph )
 
   for( size_t i= 0; i < orig_nodes; ++i ) {
     const auto node_idx = node_id_t{ i };
-    for( auto edge_idx = graph.first_edge(node_idx);
-        edge_idx.has_value();
-        edge_idx = graph.next_edge( edge_idx.value() )) {
-      auto dst_node = graph.dst_node( edge_idx.value() );
+    auto edge_itr = graph.edge_head( node_idx );
+
+    while( edge_itr.has_value() ) {
+      const edge_t& edge = graph.get_edge( edge_itr.value() );
+
+      auto dst_node = edge.get_dst_node();
       new_graph.add_edge( node_idx, dst_node );
       new_graph.add_edge( dst_node, node_idx );
+
+      edge_itr = edge.get_next_edge();
     }
   }
   return new_graph;
@@ -264,14 +300,15 @@ constexpr void mark_connected( const graph_t& graph, node_id_t node_idx, std::ar
 {
   visited.at( node_idx.value() ) = color;
 
-  for( auto edge_idx = graph.first_edge(node_idx);
-    edge_idx.has_value(); 
-    edge_idx = graph.next_edge( edge_idx.value() )) 
-  {
-    auto dst_node = graph.dst_node( edge_idx.value() );
+  auto edge_itr = graph.edge_head( node_idx );
+
+  while( edge_itr.has_value() ) {
+    const edge_t& edge = graph.get_edge( edge_itr.value() );
+    auto dst_node = edge.get_dst_node();
     if ( visited.at( dst_node.value() ) == -1 ) {
       mark_connected( graph, dst_node, visited, color );
     }
+    edge_itr = edge.get_next_edge();
   }
 }
 
@@ -301,7 +338,7 @@ constexpr int connected_subgraphs = count_connected( bidir_graph );
 static_assert( connected_subgraphs == 12 );
 
 int main( int argc, const char *argv[] ) {
-//  graph.print();
+  graph.print();
   std::cout << connected_subgraphs << "\n";
 }
 
